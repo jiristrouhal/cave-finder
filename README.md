@@ -1,0 +1,1 @@
+_There is a systematic way to organize and use information about karst region to obtain a map of the surface, that is usefull for speleologist to find the best choice for where to start the exploration of the caves._
