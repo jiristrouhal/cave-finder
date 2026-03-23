@@ -1,12 +1,24 @@
 from __future__ import annotations
+import abc
 import dataclasses
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True, frozen=True)
 class Position:
     x: float
     y: float
     z: float = 0.0
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class Plane:
+    azimuth: float
+    tilt_deg: float
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class EnvironmentValues:
+    planes: set[Plane]
 
 
 class Cell:
@@ -34,3 +46,8 @@ class Cell:
         if not 0 <= value <= 1:
             raise ValueError(f"Cell value must be 0 <= and <= 1, received {value}.")
         self._value = value
+
+
+class Environment:
+    def get_values(self, position: Position) -> EnvironmentValues:
+        return EnvironmentValues(set())

@@ -1,7 +1,7 @@
 from math import inf, nan
 import pytest
 
-from main import Cell, Position
+from main import Cell, Position, Environment, EnvironmentValues
 
 
 @pytest.fixture
@@ -38,6 +38,16 @@ def test_setting_cell_value_outside_probability_range_raises_error(
 ) -> None:
     with pytest.raises(ValueError):
         cell.set_to(new_value)
+
+
+class TestEnvironment:
+    @pytest.fixture
+    def env(self) -> Environment:
+        return Environment()
+
+    @pytest.mark.parametrize("position", [Position(1, 2, 0), Position(-5, 1.1, -2)])
+    def test_initially_environment_vars_are_always_empty(self, env: Environment, position) -> None:
+        assert env.get_values(position) == EnvironmentValues(set())
 
 
 if __name__ == "__main__":
