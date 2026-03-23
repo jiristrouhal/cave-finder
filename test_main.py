@@ -1,7 +1,7 @@
 from math import inf, nan
 import pytest
 
-from main import Cell, Position, Environment, EnvironmentValues
+from main import Cell, Position, Environment, EnvironmentValues, Plane
 
 
 @pytest.fixture
@@ -48,6 +48,14 @@ class TestEnvironment:
     @pytest.mark.parametrize("position", [Position(1, 2, 0), Position(-5, 1.1, -2)])
     def test_initially_environment_vars_are_always_empty(self, env: Environment, position) -> None:
         assert env.get_values(position) == EnvironmentValues(set())
+
+    @pytest.mark.parametrize("position", [Position(1, 2, 0), Position(-5, 1.1, -2)])
+    @pytest.mark.parametrize("plane", [Plane(120, 20), Plane(140, -15)])
+    def test_first_plane_added_to_environment_is_accessible_anywhere(
+        self, env: Environment, position: Position, plane: Plane
+    ) -> None:
+        env.add_plane(plane)
+        assert env.get_values(position).planes == {plane}
 
 
 if __name__ == "__main__":

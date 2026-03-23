@@ -49,5 +49,11 @@ class Cell:
 
 
 class Environment:
+    def __init__(self) -> None:
+        self._planes: set[Plane] = set()
+
     def get_values(self, position: Position) -> EnvironmentValues:
-        return EnvironmentValues(set())
+        return EnvironmentValues(self._planes)
+
+    def add_plane(self, plane: Plane, *args) -> None:
+        self._planes.add(plane)
