@@ -1,5 +1,4 @@
 from __future__ import annotations
-import abc
 import dataclasses
 
 
@@ -24,7 +23,7 @@ class EnvironmentValues:
 class Cell:
     def __init__(self, position: Position) -> None:
         self._value = 0.0
-        self.position = position
+        self._position = position
         self._neighbours: set[Cell] = set()
 
     @property
@@ -35,9 +34,12 @@ class Cell:
     def neighbours(self) -> set[Cell]:
         return self._neighbours
 
-    def add_neighbour(self, cell: Cell) -> None:
-        assert isinstance(cell, Cell), f"Expected {Cell.__name__}, received {type(cell).__name__}"
-        self._neighbours.add(cell)
+    def add_neighbours(self, *cells: Cell) -> None:
+        for cell in cells:
+            assert isinstance(cell, Cell), (
+                f"Expected {Cell.__name__}, received {type(cell).__name__}"
+            )
+            self._neighbours.add(cell)
 
     def set_to(self, value: float) -> None:
         assert isinstance(value, float | int), (
@@ -57,3 +59,55 @@ class Environment:
 
     def add_plane(self, plane: Plane, *args) -> None:
         self._planes.add(plane)
+
+
+class Connection:
+    @dataclasses.dataclass(slots=True)
+    class Values:
+        raw_prob: float = dataclasses.field(init=False, default=0.0)
+
+    def __init__(self, source: Cell, target: Cell) -> None:
+        self._source = source
+        self._target = target
+        self._values = self.Values()
+
+    @property
+    def source(self) -> Cell:
+        return self._source
+
+    @property
+    def target(self) -> Cell:
+        return self._target
+
+    @property
+    def values(self) -> Values:
+        return self._values
+
+
+def build_connections(cells: set[Cell]) -> set[Connection]:
+    connections: set[Connection] = set()
+    for cell in cells:
+        for ncell in cell.neighbours:
+            connection = Connection(source=cell, target=ncell)
+            connections.add(connection)
+    return connections
+
+
+class ConnectionCollection:
+    def __init__(self, cells: set[Cell]):
+        self._connections: dict[Cell, Connection] = set()
+        for cell in cells:
+            for ncell in cell.neighbours:
+                connection = Connection(source=cell, target=ncell)
+                self._connections.add(connection)
+
+
+# class Grid:
+#     def __init__(self, cells: set[Cell], environment: Environment) -> None:
+#         self._cells = cells
+#         self._env = environment
+#         self._connections
+
+#     @property
+#     def connections(self) -> set[Connection]:
+#         return self._connections

@@ -1,7 +1,7 @@
 from math import inf, nan
 import pytest
 
-from main import Cell, Position, Environment, EnvironmentValues, Plane
+from main import Cell, Position, Environment, EnvironmentValues, Plane, build_connections
 
 
 @pytest.fixture
@@ -20,9 +20,9 @@ def test_cell_is_initially_with_zero_value_without_neighbours(cell: Cell) -> Non
 
 
 def test_setting_neigbours(position: Position, cell: Cell) -> None:
-    cell.add_neighbour(Cell(position))
+    cell.add_neighbours(Cell(position))
     assert len(cell.neighbours) == 1
-    cell.add_neighbour(Cell(position))
+    cell.add_neighbours(Cell(position))
     assert len(cell.neighbours) == 2
 
 
@@ -56,6 +56,43 @@ class TestEnvironment:
     ) -> None:
         env.add_plane(plane)
         assert env.get_values(position).planes == {plane}
+
+    def test_adding_multiple_planes(self, env: Environment) -> None:
+        plane_1 = Plane(120, 15)
+        plane_2 = Plane(170, 2)
+        env.add_plane(plane_1)
+        env.add_plane(plane_2)
+        assert env.get_values(Position(0, 0, 0)).planes == {plane_1, plane_2}
+
+
+class TestBuildingConnections:
+    def test_each_of_two_neighbours_yields_one_connection(self) -> None:
+        cell_1 = Cell(Position(1, 1, 1))
+        cell_2 = Cell(Position(3, 3, 4))
+        cell_1.add_neighbours(cell_2)
+        cell_2.add_neighbours(cell_1)
+        connections = build_connections({cell_1, cell_2})
+        assert len(connections) == 2
+
+    def test_three_defined_neigbours_yield_single_connection(self) -> None:
+        cell_1 = Cell(Position(1, 1, 1))
+        cell_2 = Cell(Position(1, 2.2, 3))
+        cell_3 = Cell(Position(4, 5, 2))
+        cell_1.add_neighbours(cell_3, cell_2)
+        cell_2.add_neighbours(cell_3, cell_1)
+        cell_3.add_neighbours(cell_2)  # not cell_1 - this means 5 neighbours, in total
+        connections = build_connections({cell_1, cell_2, cell_3})
+        assert len(connections) == 5
+
+
+# class TestGrid:
+#     def test_single_pair_of_cells_creates_two_connections(self) -> None:
+#         cell_1 = Cell(Position(1, 1, 1))
+#         cell_2 = Cell(Position(3, 3, 4))
+#         cells = {cell_1, cell_2}
+#         env = Environment()
+#         grid = Grid(cells, env)
+#         assert len(grid.connections) == 2
 
 
 if __name__ == "__main__":
