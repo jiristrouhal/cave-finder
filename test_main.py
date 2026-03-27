@@ -1,7 +1,18 @@
 from math import inf, nan
 import pytest
 
-from main import Cell, Position, Environment, EnvironmentValues, Plane, build_connections
+from main import (
+    Cell,
+    Position,
+    Environment,
+    EnvironmentValues,
+    Plane,
+    Vector,
+    Connection,
+    build_connections,
+    evaluate_connections,
+    vector_plane_cosine,
+)
 
 
 @pytest.fixture
@@ -12,6 +23,11 @@ def position() -> Position:
 @pytest.fixture
 def cell(position: Position) -> Cell:
     return Cell(position)
+
+
+@pytest.fixture
+def env() -> Environment:
+    return Environment()
 
 
 def test_cell_is_initially_with_zero_value_without_neighbours(cell: Cell) -> None:
@@ -41,10 +57,6 @@ def test_setting_cell_value_outside_probability_range_raises_error(
 
 
 class TestEnvironment:
-    @pytest.fixture
-    def env(self) -> Environment:
-        return Environment()
-
     @pytest.mark.parametrize("position", [Position(1, 2, 0), Position(-5, 1.1, -2)])
     def test_initially_environment_vars_are_always_empty(self, env: Environment, position) -> None:
         assert env.get_values(position) == EnvironmentValues(set())
@@ -85,14 +97,27 @@ class TestBuildingConnections:
         assert len(connections) == 5
 
 
-# class TestGrid:
-#     def test_single_pair_of_cells_creates_two_connections(self) -> None:
-#         cell_1 = Cell(Position(1, 1, 1))
-#         cell_2 = Cell(Position(3, 3, 4))
-#         cells = {cell_1, cell_2}
-#         env = Environment()
-#         grid = Grid(cells, env)
-#         assert len(grid.connections) == 2
+class TestPlaneCosine:
+    def test_xy_plane_and_x_vector_gives_1_cosine(sefl) -> None:
+        plane = Plane(0, 90)
+        vector = Vector(1, 0, 0)
+        assert vector_plane_cosine(vector, plane) == 1
+
+
+class TestEvaluatingConnections:
+    def test_evaluating_empty_set_does_nothing(self, env: Environment):
+        connections: set[Connection] = set()
+        evaluate_connections(connections, env)
+        assert connections == set()
+
+    def test_evaluating_connection_with_single_plane(self, env: Environment) -> None:
+        source = Cell(Position(0, 0, 0))
+        target = Cell(Position(1, 0, 0))
+        env.add_plane(Plane(90, 0))  # go east - with the x
+        conn_1 = Connection(source=source, target=target)
+        connections = {conn_1}
+        evaluate_connections(connections, env)
+        assert conn_1.values.prob == 1.0
 
 
 if __name__ == "__main__":
