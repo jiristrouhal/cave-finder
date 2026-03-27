@@ -44,7 +44,7 @@ class Plane:
 def vector_plane_cosine(vector: Vector, plane: Plane) -> float:
     # x/y is given by the plane azimuth
     # z is given by the plane angle
-    z = abs(math.sin(plane.tilt_deg))
+    z = abs(math.sin(math.radians(plane.tilt_deg)))
     xy = math.sqrt(1 - z**2)
 
     # calculate plane unit normal - the xy projection of plane normal
