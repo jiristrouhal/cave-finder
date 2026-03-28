@@ -2,14 +2,8 @@ from math import inf, nan
 import pytest
 
 from geometry import Position, Plane
-from main import (
-    Cell,
-    Environment,
-    EnvironmentValues,
-    Connection,
-    build_connections,
-    evaluate_connections,
-)
+from main import _Cell, Connection, build_connections, evaluate_connections
+from environment import Environment, EnvironmentValues
 
 
 @pytest.fixture
@@ -18,8 +12,8 @@ def position() -> Position:
 
 
 @pytest.fixture
-def cell(position: Position) -> Cell:
-    return Cell(position)
+def cell(position: Position) -> _Cell:
+    return _Cell(position)
 
 
 @pytest.fixture
@@ -27,27 +21,27 @@ def env() -> Environment:
     return Environment()
 
 
-def test_cell_is_initially_with_zero_value_without_neighbours(cell: Cell) -> None:
+def test_cell_is_initially_with_zero_value_without_neighbours(cell: _Cell) -> None:
     assert cell.value == 0
     assert not cell.neighbours
 
 
-def test_setting_neigbours(position: Position, cell: Cell) -> None:
-    cell.add_neighbours(Cell(position))
+def test_setting_neigbours(position: Position, cell: _Cell) -> None:
+    cell.add_neighbours(_Cell(position))
     assert len(cell.neighbours) == 1
-    cell.add_neighbours(Cell(position))
+    cell.add_neighbours(_Cell(position))
     assert len(cell.neighbours) == 2
 
 
 @pytest.mark.parametrize("new_value", [1, 0, 0.1, 0.5])
-def test_cell_value_can_be_set_to_any_probability_value(cell: Cell, new_value: float) -> None:
+def test_cell_value_can_be_set_to_any_probability_value(cell: _Cell, new_value: float) -> None:
     cell.set_to(new_value)
     assert cell.value == new_value
 
 
 @pytest.mark.parametrize("new_value", [-1, -0.1, 5, nan, inf, -inf])
 def test_setting_cell_value_outside_probability_range_raises_error(
-    cell: Cell, new_value: float
+    cell: _Cell, new_value: float
 ) -> None:
     with pytest.raises(ValueError):
         cell.set_to(new_value)
@@ -76,17 +70,17 @@ class TestEnvironment:
 
 class TestBuildingConnections:
     def test_each_of_two_neighbours_yields_one_connection(self) -> None:
-        cell_1 = Cell(Position(1, 1, 1))
-        cell_2 = Cell(Position(3, 3, 4))
+        cell_1 = _Cell(Position(1, 1, 1))
+        cell_2 = _Cell(Position(3, 3, 4))
         cell_1.add_neighbours(cell_2)
         cell_2.add_neighbours(cell_1)
         connections = build_connections({cell_1, cell_2})
         assert len(connections) == 2
 
     def test_three_defined_neigbours_yield_single_connection(self) -> None:
-        cell_1 = Cell(Position(1, 1, 1))
-        cell_2 = Cell(Position(1, 2.2, 3))
-        cell_3 = Cell(Position(4, 5, 2))
+        cell_1 = _Cell(Position(1, 1, 1))
+        cell_2 = _Cell(Position(1, 2.2, 3))
+        cell_3 = _Cell(Position(4, 5, 2))
         cell_1.add_neighbours(cell_3, cell_2)
         cell_2.add_neighbours(cell_3, cell_1)
         cell_3.add_neighbours(cell_2)  # not cell_1 - this means 5 neighbours, in total
@@ -101,8 +95,8 @@ class TestEvaluatingConnections:
         assert connections == set()
 
     def test_evaluating_connection_with_single_plane(self, env: Environment) -> None:
-        source = Cell(Position(0, 0, 0))
-        target = Cell(Position(1, 0, 0))
+        source = _Cell(Position(0, 0, 0))
+        target = _Cell(Position(1, 0, 0))
         env.add_plane(Plane(90, 0))  # go east - with the x
         conn_1 = Connection(source=source, target=target)
         connections = {conn_1}
