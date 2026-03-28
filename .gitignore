@@ -3,3 +3,4 @@ chat_responses/*
 .venv
 .vscode
 *.pyc
+*.egg-info

@@ -1,13 +1,13 @@
 from __future__ import annotations
 import dataclasses
 
-from geometry import (
+from .geometry import (
     Position as _Position,
     Vector as _Vector,
     vector_plane_cosine as _vector_plane_cosine,
 )
-from environment import Environment as _Environment
-from cell import Cell as _Cell
+from .environment import Environment as _Environment
+from .cell import Cell as Cell
 
 
 class Connection:
@@ -15,7 +15,7 @@ class Connection:
     class Values:
         prob: float = dataclasses.field(init=False, default=0.0)
 
-    def __init__(self, source: _Cell, target: _Cell) -> None:
+    def __init__(self, source: Cell, target: Cell) -> None:
         self._source = source
         self._target = target
         self._values = self.Values()
@@ -23,7 +23,7 @@ class Connection:
         self._vector = self._target.position - self._source.position
 
     @property
-    def source(self) -> _Cell:
+    def source(self) -> Cell:
         return self._source
 
     @property
@@ -36,7 +36,7 @@ class Connection:
         return self._vector
 
     @property
-    def target(self) -> _Cell:
+    def target(self) -> Cell:
         return self._target
 
     @property
@@ -44,9 +44,9 @@ class Connection:
         return self._values
 
 
-def build_connections(cells: set[_Cell]) -> set[Connection]:
+def build_connections(cells: set[Cell]) -> set[Connection]:
     """Instantiate connections for neighbouring cells."""
-    assert all(isinstance(c, _Cell) for c in cells), f"Expected {_Cell.__name__}"
+    assert all(isinstance(c, Cell) for c in cells), f"Expected {Cell.__name__}"
     connections: set[Connection] = set()
     for cell in cells:
         for ncell in cell.neighbours:

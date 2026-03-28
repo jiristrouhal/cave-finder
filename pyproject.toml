@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
+[tool.setuptools.packages.find]
+where = ["app"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

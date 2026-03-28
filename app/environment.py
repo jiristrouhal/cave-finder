@@ -1,6 +1,6 @@
 import dataclasses
 
-from geometry import Plane as _Plane, Position as _Position
+from .geometry import Plane as _Plane, Position as _Position
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

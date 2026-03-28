@@ -1,6 +1,6 @@
 import pytest
 
-from geometry import vector_plane_cosine, Vector, Plane
+from app.geometry import vector_plane_cosine, Vector, Plane
 
 
 class TestPlaneCosine:

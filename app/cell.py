@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 
-from geometry import Position as _Position
+from .geometry import Position as _Position
 
 
 class Cell:
