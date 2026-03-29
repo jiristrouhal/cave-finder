@@ -1,6 +1,7 @@
 from __future__ import annotations
 import dataclasses
 import math
+from typing import Callable, NewType
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -61,3 +62,36 @@ def vector_plane_cosine(vector: Vector, plane: Plane) -> float:
     # calculate size of projection of vector into the plane
     cos = math.sqrt(1 - ((vector * unit_normal) / vector.size) ** 2)
     return cos
+
+
+XYPoint = tuple[float | int, float | int]
+XYSegment = tuple[XYPoint, XYPoint]
+HeightFunc = Callable[[XYPoint], float]
+
+
+class Region:
+    def __init__(
+        self, boundary: list[XYPoint], top: HeightFunc, bottom: HeightFunc, cell_size: float
+    ) -> None:
+        self._boundary_y_groups: list[list[XYSegment]] = self._fill_y_groups(boundary, cell_size)
+        self._top = top
+        self._bottom = bottom
+
+    @property
+    def boundary_y_groups(self) -> list[list[XYSegment]]:
+        return self._boundary_y_groups
+
+    def _fill_y_groups(self, boundary: list[XYPoint], cell_size: float) -> list[list[XYSegment]]:
+        assert boundary[0] != boundary[-1], "The first and last point must not be identical."
+        y_min, y_max = min((b[1] for b in boundary)), max((b[1] for b in boundary))
+        n_groups = int(math.ceil((y_max - y_min) / cell_size))
+        empty_list: list[XYSegment] = []
+        groups = [empty_list.copy() for _ in range(n_groups)]
+        b_prev = boundary[-1]
+        for b in boundary:
+            y_b_min, y_b_max = min(b[1], b_prev[1]), max(b[1], b_prev[1])
+            first_group_id = int(y_b_min // cell_size)
+            last_group_id = int(y_b_max // cell_size)
+            for i in range(first_group_id, last_group_id):
+                groups[i].append((b_prev, b))
+        return groups
