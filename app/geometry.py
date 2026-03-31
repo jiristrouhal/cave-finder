@@ -1,7 +1,7 @@
 from __future__ import annotations
 import dataclasses
 import math
-from typing import Callable, NewType
+from typing import Callable
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -73,25 +73,54 @@ class Region:
     def __init__(
         self, boundary: list[XYPoint], top: HeightFunc, bottom: HeightFunc, cell_size: float
     ) -> None:
-        self._boundary_y_groups: list[list[XYSegment]] = self._fill_y_groups(boundary, cell_size)
+        self._cell_size = cell_size
+        self._y_min = min(b[1] for b in boundary)
+        self._y_max = max(b[1] for b in boundary)
+        self._n_groups = int(math.ceil((self._y_max - self._y_min) / cell_size))
+        self._boundary_y_groups: list[list[XYSegment]] = self._fill_y_groups(boundary)
         self._top = top
         self._bottom = bottom
 
     @property
     def boundary_y_groups(self) -> list[list[XYSegment]]:
+        """Return boundaries grouped by y-coord range they fall into. Single boundary can belong to mutliple groups."""
         return self._boundary_y_groups
 
-    def _fill_y_groups(self, boundary: list[XYPoint], cell_size: float) -> list[list[XYSegment]]:
+    def get_boundary_segments(self, y: float) -> list[XYSegment]:
+        group_index = int(y // self._cell_size)
+        if 0 <= group_index < self._n_groups:
+            return self._boundary_y_groups[group_index]
+        if group_index == self._n_groups:
+            return self._boundary_y_groups[-1]
+        return []
+
+    def _fill_y_groups(self, boundary: list[XYPoint]) -> list[list[XYSegment]]:
         assert boundary[0] != boundary[-1], "The first and last point must not be identical."
-        y_min, y_max = min((b[1] for b in boundary)), max((b[1] for b in boundary))
-        n_groups = int(math.ceil((y_max - y_min) / cell_size))
         empty_list: list[XYSegment] = []
-        groups = [empty_list.copy() for _ in range(n_groups)]
-        b_prev = boundary[-1]
+        groups = [empty_list.copy() for _ in range(self._n_groups)]
+        a = boundary[-1]
         for b in boundary:
-            y_b_min, y_b_max = min(b[1], b_prev[1]), max(b[1], b_prev[1])
-            first_group_id = int(y_b_min // cell_size)
-            last_group_id = int(y_b_max // cell_size)
-            for i in range(first_group_id, last_group_id):
-                groups[i].append((b_prev, b))
+            segment = (a, b)
+            segment_y_min, segment_y_max = min(a[1], b[1]), max(a[1], b[1])
+            first_group_id = self.get_y_group_index(segment_y_min)
+            last_group_id = self.get_y_group_index(segment_y_max)
+            for i in range(first_group_id, min(self._n_groups, last_group_id + 1)):
+                groups[i].append(segment)
+            a = b
+
+        for i, g in enumerate(groups):
+            groups[i] = sorted(g, key=lambda x: min(x[0][0], x[1][0]))
         return groups
+
+    def get_y_group_index(self, y: float) -> int:
+        """Returns the y group index for given coord y.
+
+        If y is below min y, return 0, if y is above max y, return n of groups.
+        """
+        if self._y_min <= y < self._y_max:
+            return int(y // self._cell_size)
+        if y == self._y_max:
+            return self._n_groups - 1
+        if y > self._y_max:
+            return self._n_groups
+        return 0

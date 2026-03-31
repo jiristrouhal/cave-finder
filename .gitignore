@@ -4,3 +4,4 @@ chat_responses/*
 .vscode
 *.pyc
 *.egg-info
+__pycache__
