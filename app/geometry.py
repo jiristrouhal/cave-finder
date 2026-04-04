@@ -176,6 +176,79 @@ class Region:
             return self._n_groups
         return 0
 
+    def get_1d_grid_points(self, y: float) -> list[XYPoint]:
+        result: list[XYPoint] = []
+        max_points = int(math.ceil(self._boundary.x_dim / self._cell_size)) + 1
+        segments = self.get_boundary_segments(y)
+        crossable_segments = set(s for s in segments if s[0][1] != s[1][1])
+        assert len(crossable_segments) >= 2
+
+        in_ = False
+
+        # The following loop ensures that grid covers the first hit boundary segment
+        # If if were not here, the grid might start from inside region
+        i0 = 0
+        for j in range(max_points):
+            x = self._boundary.x_bounds[0] + j * self._cell_size
+            for segment in crossable_segments:
+                if self.crossed_line(x, y, segment):
+                    if j > 0:
+                        prev_x = self._boundary.x_bounds[0] + (j - 1) * self._cell_size
+                        result.append((prev_x, y))
+                    i0 = j
+                    break
+            if result:
+                assert len(result) == 1
+                # The initial point has been added
+                break
+
+        for i in range(i0, max_points):
+            x = self._boundary.x_bounds[0] + i * self._cell_size
+            just_crossed: set[XYSegment] = set()
+
+            # check for crossed segments
+            for segment in crossable_segments:
+                if self.crossed_line(x, y, segment):
+                    in_ = not in_
+                    just_crossed.add(segment)
+            crossable_segments -= just_crossed
+
+            if in_:
+                result.append((x, y))
+
+            if not crossable_segments:
+                # If there are no more crossable segments, we can stop checking for more points, because the ray will not cross any more segments.
+                # One more point must be added to ensure the grid covers the whole region
+                result.append((x, y))
+                break
+        return result
+
+    @staticmethod
+    def crossed_line(x: float, y: float, segment: XYSegment) -> bool:
+        """Returns whether the ray from (-inf, y) to (x, y) crosses the line segment.
+
+        If the segment is horizontal, it is not considered crossing. If the ray touches the segment at its end, it is considered crossing only if the other end of the segment is above the ray.
+
+        If the ray is exactly on the segment, it is considered crossing the segment.
+        """
+        (x1, y1), (x2, y2) = segment
+        if x1 > x2:
+            x1, y1, x2, y2 = x2, y2, x1, y1
+        if y1 == y2:
+            # horizontal segment is not crossing
+            return False
+        if x < x1:
+            return False
+        if x > x2:
+            return True
+        if x1 == x2:
+            # in this case, the x is between x1 and x2, so the ray is on the line of the segment.
+            # The ray is crossing the segment
+            return True
+        x_frac = (x - x1) / (x2 - x1)
+        y_frac = (y - y1) / (y2 - y1)
+        return x_frac >= y_frac
+
     @staticmethod
     def calc_n_groups(y_range: float, cell_size: float) -> int:
         assert cell_size > 0, "Cell size must be positive"

@@ -69,9 +69,72 @@ class TestBoundary:
         assert b.y_bounds == (0, 7)
 
 
+class TestCrossingLine:
+    def test_crossing_line_with_horizontal_segment_is_always_false(self) -> None:
+        assert not Region.crossed_line(0, 0, ((0, 0), (1, 0)))
+
+    def test_x_less_than_min_segment_x_is_not_crossing(self) -> None:
+        assert not Region.crossed_line(0, 0, ((1, 0), (1, 1)))
+
+    def test_x_greater_than_max_segment_x_is_crossing(self) -> None:
+        assert Region.crossed_line(2, 0, ((1, 0), (1, 1)))
+
+    def test_x_with_segment_x_percentage_less_than_y_percentage_is_not_crossing(self) -> None:
+        assert not Region.crossed_line(0.5, 0.75, ((0, 0), (1, 1)))
+        assert not Region.crossed_line(0, 0, ((1, 0), (0, 1)))
+
+    def test_x_with_segment_x_percentage_more_than_y_percentage_is_crossing(self) -> None:
+        assert Region.crossed_line(0.75, 0.5, ((0, 0), (1, 1)))
+
+    def test_x_with_segment_x_percentage_equal_to_y_percentage_is_crossing(self) -> None:
+        assert Region.crossed_line(0.5, 0.5, ((0, 0), (1, 1)))
+
+    def test_crossing_line_at_its_end_is_crossing(self) -> None:
+        assert Region.crossed_line(1, 0, ((1, 0), (0, 1)))
+
+
 class TestGridPoints:
-    def test_triangular_boundary_produces_four_grid_points(self):
-        b = Boundary(points=[(0, 0), (1, 0), (0, 1)])
+    def test_boundary_segment_of_cell_size_length_yields_2_grid_points(
+        self, top: HeightFunc, bottom: HeightFunc
+    ) -> None:
+        boundary_points: list[XYPoint] = [(0, 0), (1, 0), (0, 1)]
+        region = Region(boundary_points, top, bottom, cell_size=1)
+        points = region.get_1d_grid_points(y=0)
+        assert points == [(0, 0), (1, 0)]
+
+    def test_boundary_segment_of_half_cell_size_length_yields_3_grid_points(
+        self, top: HeightFunc, bottom: HeightFunc
+    ) -> None:
+        boundary_points: list[XYPoint] = [(0, 0), (1, 0), (0, 1)]
+        region = Region(boundary_points, top, bottom, cell_size=0.5)
+        points = region.get_1d_grid_points(y=0)
+        assert points == [(0, 0), (0.5, 0), (1, 0)]
+
+    def test_less_than_whole_x_range_yields_only_points_within_range(
+        self, top: HeightFunc, bottom: HeightFunc
+    ) -> None:
+        boundary_points: list[XYPoint] = [(0, 0), (4, 0), (0, 4)]
+        region = Region(boundary_points, top, bottom, cell_size=1)
+        points = region.get_1d_grid_points(y=2)
+        print(points)
+        assert points == [(0, 2), (1, 2), (2, 2)]
+
+    def test_hitting_only_single_boundary_point_yields_the_point_and_adds_following_points(
+        self, top: HeightFunc, bottom: HeightFunc
+    ) -> None:
+        boundary_points: list[XYPoint] = [(0, 0), (1, 0), (0, 1)]
+        region = Region(boundary_points, top, bottom, cell_size=1)
+        points = region.get_1d_grid_points(y=1)
+        assert points == [(0, 1), (1, 1)]
+
+    def test_adding_point_before_reaching_diagonal_boundary_to_ensure_grid_covers_whole_region(
+        self, top: HeightFunc, bottom: HeightFunc
+    ) -> None:
+        boundary_points: list[XYPoint] = [(0, 1), (1, 0), (2, 0), (1, 1)]
+        region = Region(boundary_points, top, bottom, cell_size=1)
+        points = region.get_1d_grid_points(y=0.5)
+        # The points should cover the whole region of the skewed square
+        assert points == [(0, 0.5), (1, 0.5), (2, 0.5)]
 
 
 class TestLowerTriangularGrid:
@@ -84,7 +147,7 @@ class TestLowerTriangularGrid:
         assert len(grid) == 1
         assert len(grid[0]) == 1
 
-    @pytest.mark.xfail(reason="The logic is not imlemented yet")
+    @pytest.mark.xfail(reason="Still not fully implemented")
     def test_cell_half_domain_size_produces_3_cells(
         self, top: HeightFunc, bottom: HeightFunc
     ) -> None:
