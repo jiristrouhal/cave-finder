@@ -69,15 +69,48 @@ XYSegment = tuple[XYPoint, XYPoint]
 HeightFunc = Callable[[XYPoint], float]
 
 
-class Region:
+class Boundary:
     def __init__(
-        self, boundary: list[XYPoint], top: HeightFunc, bottom: HeightFunc, cell_size: float
+        self,
+        points: list[XYPoint],
+    ) -> None:
+        self._points: list[XYPoint] = points
+        self._x_min: float = min(p[0] for p in points)
+        self._x_max: float = max(p[0] for p in points)
+        self._y_min: float = min(p[1] for p in points)
+        self._y_max: float = max(p[1] for p in points)
+        self._n_groups: int = 0
+
+    @property
+    def x_dim(self) -> float:
+        return self._x_max - self._x_min
+
+    @property
+    def y_range(self) -> float:
+        return self._y_max - self._y_min
+
+    @property
+    def x_bounds(self) -> tuple[float, float]:
+        return self._x_min, self._x_max
+
+    @property
+    def y_bounds(self) -> tuple[float, float]:
+        return self._y_min, self._y_max
+
+
+class Region:
+    @dataclasses.dataclass
+    class GridCell:
+        is_boundary: bool
+
+    def __init__(
+        self, boundary_points: list[XYPoint], top: HeightFunc, bottom: HeightFunc, cell_size: float
     ) -> None:
         self._cell_size = cell_size
-        self._y_min = min(b[1] for b in boundary)
-        self._y_max = max(b[1] for b in boundary)
-        self._n_groups = int(math.ceil((self._y_max - self._y_min) / cell_size))
-        self._boundary_y_groups: list[list[XYSegment]] = self._fill_y_groups(boundary)
+        self._boundary = Boundary(points=boundary_points)
+        self._n_groups = self.calc_n_groups(self._boundary.y_range, cell_size)
+        assert self._n_groups > 0
+        self._boundary_y_groups: list[list[XYSegment]] = self._fill_y_groups(boundary_points)
         self._top = top
         self._bottom = bottom
 
@@ -87,12 +120,25 @@ class Region:
         return self._boundary_y_groups
 
     def get_boundary_segments(self, y: float) -> list[XYSegment]:
-        group_index = int(y // self._cell_size)
+        group_index = self.get_y_group_index(y)
         if 0 <= group_index < self._n_groups:
             return self._boundary_y_groups[group_index]
         if group_index == self._n_groups:
             return self._boundary_y_groups[-1]
         return []
+
+    def generate_2d_grid(self) -> list[list[GridCell]]:
+        result: list[list[Region.GridCell]] = []
+        grid_points: list[list[XYPoint]] = []
+        n_rows = int(math.ceil(self._boundary.y_range / self._cell_size))
+
+        # begin new row
+        for i in range(n_rows):
+            new_row: list[Region.GridCell] = []
+            result.append(new_row)
+
+            new_row.append(self.GridCell(is_boundary=True))
+        return result
 
     def _fill_y_groups(self, boundary: list[XYPoint]) -> list[list[XYSegment]]:
         assert boundary[0] != boundary[-1], "The first and last point must not be identical."
@@ -104,6 +150,8 @@ class Region:
             segment_y_min, segment_y_max = min(a[1], b[1]), max(a[1], b[1])
             first_group_id = self.get_y_group_index(segment_y_min)
             last_group_id = self.get_y_group_index(segment_y_max)
+            assert first_group_id >= 0
+            assert last_group_id <= self._n_groups
             for i in range(first_group_id, min(self._n_groups, last_group_id + 1)):
                 groups[i].append(segment)
             a = b
@@ -117,10 +165,19 @@ class Region:
 
         If y is below min y, return 0, if y is above max y, return n of groups.
         """
-        if self._y_min <= y < self._y_max:
-            return int(y // self._cell_size)
-        if y == self._y_max:
+        y_min, y_max = self._boundary.y_bounds
+        if y_min <= y < y_max:
+            index = int((y - y_min) / self._cell_size)
+            assert index >= 0
+            return index
+        if y == y_max:
             return self._n_groups - 1
-        if y > self._y_max:
+        if y > y_max:
             return self._n_groups
         return 0
+
+    @staticmethod
+    def calc_n_groups(y_range: float, cell_size: float) -> int:
+        assert cell_size > 0, "Cell size must be positive"
+        assert y_range >= 0, "Y range must be non-negative"
+        return int(math.ceil((y_range) / cell_size))
