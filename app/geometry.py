@@ -1,6 +1,7 @@
 from __future__ import annotations
 import dataclasses
 import math
+import enum
 from typing import Callable
 
 
@@ -98,10 +99,18 @@ class Boundary:
         return self._y_min, self._y_max
 
 
+Index = int
+
+
 class Region:
     @dataclasses.dataclass
     class GridCell:
         is_boundary: bool
+
+    class Crossing(enum.Enum):
+        NONE = 0
+        CROSS = 1
+        ON = 2
 
     def __init__(
         self, boundary_points: list[XYPoint], top: HeightFunc, bottom: HeightFunc, cell_size: float
@@ -129,8 +138,12 @@ class Region:
 
     def generate_2d_grid(self) -> list[list[GridCell]]:
         result: list[list[Region.GridCell]] = []
-        grid_points: list[list[XYPoint]] = []
+        grid_points: list[list[Index]] = []
         n_rows = int(math.ceil(self._boundary.y_range / self._cell_size))
+
+        for i in range(n_rows + 1):
+            y = self._boundary.y_bounds[0] + i * self._cell_size
+            grid_points.append(self.get_1d_grid_points(y))
 
         # begin new row
         for i in range(n_rows):
@@ -176,8 +189,8 @@ class Region:
             return self._n_groups
         return 0
 
-    def get_1d_grid_points(self, y: float) -> list[XYPoint]:
-        result: list[XYPoint] = []
+    def get_1d_grid_points(self, y: float) -> list[Index]:
+        result: list[Index] = []
         max_points = int(math.ceil(self._boundary.x_dim / self._cell_size)) + 1
         segments = self.get_boundary_segments(y)
         crossable_segments = set(s for s in segments if s[0][1] != s[1][1])
@@ -185,46 +198,42 @@ class Region:
 
         in_ = False
 
-        # The following loop ensures that grid covers the first hit boundary segment
-        # If if were not here, the grid might start from inside region
-        i0 = 0
-        for j in range(max_points):
-            x = self._boundary.x_bounds[0] + j * self._cell_size
-            for segment in crossable_segments:
-                if self.crossed_line(x, y, segment):
-                    if j > 0:
-                        prev_x = self._boundary.x_bounds[0] + (j - 1) * self._cell_size
-                        result.append((prev_x, y))
-                    i0 = j
-                    break
-            if result:
-                assert len(result) == 1
-                # The initial point has been added
-                break
-
-        for i in range(i0, max_points):
+        for i in range(max_points):
             x = self._boundary.x_bounds[0] + i * self._cell_size
-            just_crossed: set[XYSegment] = set()
 
+            just_crossed: set[XYSegment] = set()
+            crossing = self.Crossing.NONE
+            any_crossing = False
+            on_boundary = False
             # check for crossed segments
             for segment in crossable_segments:
-                if self.crossed_line(x, y, segment):
-                    in_ = not in_
+                crossing = self.line_crossing(x, y, segment)
+                any_crossing = any_crossing or crossing == self.Crossing.CROSS
+                on_boundary = on_boundary or crossing == self.Crossing.ON
+                if crossing == self.Crossing.CROSS or crossing == self.Crossing.ON:
                     just_crossed.add(segment)
             crossable_segments -= just_crossed
+            if len(just_crossed) % 2:
+                in_ = not in_
 
-            if in_:
-                result.append((x, y))
+            outside = not (in_ or on_boundary)
+            already_added = result and result[-1] == i
+            if not (outside or already_added):
+                result.append(i)
+            if any_crossing:
+                if outside:
+                    # add the point even when not in the region, to cover the boundary
+                    result.append(i)
 
-            if not crossable_segments:
-                # If there are no more crossable segments, we can stop checking for more points, because the ray will not cross any more segments.
-                # One more point must be added to ensure the grid covers the whole region
-                result.append((x, y))
-                break
+                elif len(result) < 2 or result[-2] < result[-1] - 1:
+                    # add point preceeding the current one, to cover the boundary
+                    # if the point is not already added
+                    result.insert(-1, i - 1)
+
         return result
 
     @staticmethod
-    def crossed_line(x: float, y: float, segment: XYSegment) -> bool:
+    def line_crossing(x: float, y: float, segment: XYSegment) -> Region.Crossing:
         """Returns whether the ray from (-inf, y) to (x, y) crosses the line segment.
 
         If the segment is horizontal, it is not considered crossing. If the ray touches the segment at its end, it is considered crossing only if the other end of the segment is above the ray.
@@ -236,18 +245,24 @@ class Region:
             x1, y1, x2, y2 = x2, y2, x1, y1
         if y1 == y2:
             # horizontal segment is not crossing
-            return False
+            return Region.Crossing.NONE
         if x < x1:
-            return False
+            return Region.Crossing.NONE
         if x > x2:
-            return True
+            return Region.Crossing.CROSS
         if x1 == x2:
             # in this case, the x is between x1 and x2, so the ray is on the line of the segment.
             # The ray is crossing the segment
-            return True
+            return Region.Crossing.ON
         x_frac = (x - x1) / (x2 - x1)
         y_frac = (y - y1) / (y2 - y1)
-        return x_frac >= y_frac
+        return (
+            Region.Crossing.CROSS
+            if x_frac > y_frac
+            else Region.Crossing.NONE
+            if x_frac < y_frac
+            else Region.Crossing.ON
+        )
 
     @staticmethod
     def calc_n_groups(y_range: float, cell_size: float) -> int:
