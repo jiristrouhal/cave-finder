@@ -136,16 +136,62 @@ class Region:
             return self._boundary_y_groups[-1]
         return []
 
-    def generate_2d_grid(self) -> list[list[GridCell]]:
-        result: list[list[Region.GridCell]] = []
-        grid_points: list[list[Index]] = []
-        n_rows = int(math.ceil(self._boundary.y_range / self._cell_size))
+    @staticmethod
+    def list_right_to_left_merge(target: list[int], source: list[int]) -> list[int]:
+        i_t = 0
+        i_s = 0
+        result = target.copy()
+        for i_s in range(len(source)):
+            while i_t < len(result) and source[i_s] > result[i_t]:
+                i_t += 1
 
-        for i in range(n_rows + 1):
+            if i_t >= len(result):
+                result.append(source[i_s])
+
+            elif source[i_s] < result[i_t]:
+                result.insert(i_t, source[i_s])
+                i_t += 1
+        return result
+
+    def get_2d_grid_points(self) -> list[list[Index]]:
+        grid_points: list[list[Index]] = []
+        n_rows = int(math.ceil(self._boundary.y_range / self._cell_size)) + 1
+
+        for i in range(n_rows):
             y = self._boundary.y_bounds[0] + i * self._cell_size
             grid_points.append(self.get_1d_grid_points(y))
 
-        # begin new row
+        n = len(grid_points[0])
+        for i in range(n_rows - 1):
+            curr_row = grid_points[i]
+            next_row = grid_points[i + 1]
+            grid_points[i] = self.list_right_to_left_merge(curr_row, next_row)
+
+        n = len(grid_points[-1])
+        for i in range(n_rows - 1, 0, -1):
+            curr_row = grid_points[i]
+            next_row = grid_points[i - 1]
+            kp, kq = 0, 0
+            m = n
+            n = len(next_row)
+            while kp < m and kq < n:
+                if curr_row[kp] == next_row[kq]:
+                    kp += 1
+                    kq += 1
+                elif curr_row[kp] < next_row[kq]:
+                    kp += 1
+                else:
+                    next_row.insert(kq, curr_row[kp])
+                    kp += 1
+                    kq += 1
+
+        return grid_points
+
+    def generate_2d_grid(self) -> list[list[GridCell]]:
+        result: list[list[Region.GridCell]] = []
+        grid_points = self.get_2d_grid_points()
+        n_rows = int(math.ceil(self._boundary.y_range / self._cell_size))
+
         for i in range(n_rows):
             new_row: list[Region.GridCell] = []
             result.append(new_row)

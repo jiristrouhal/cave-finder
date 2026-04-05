@@ -150,6 +150,30 @@ class TestGridPoints:
         assert points == [0, 1, 3, 4]
 
 
+class Test2DGridPoints:
+    def test_left_to_right_merging_of_2_lists(self) -> None:
+        assert Region.list_right_to_left_merge([0, 2], [0, 2]) == [0, 2]
+        assert Region.list_right_to_left_merge([0, 1, 2], [1]) == [0, 1, 2]
+        assert Region.list_right_to_left_merge([0, 2], [1]) == [0, 1, 2]
+        assert Region.list_right_to_left_merge([0, 1], [2]) == [0, 1, 2]
+        assert Region.list_right_to_left_merge([0, 1], [1, 2]) == [0, 1, 2]
+        assert Region.list_right_to_left_merge([], [0, 2]) == [0, 2]
+        assert Region.list_right_to_left_merge([0, 2, 4, 6], [1, 3, 5]) == [0, 1, 2, 3, 4, 5, 6]
+        assert Region.list_right_to_left_merge([1, 2, 3], []) == [1, 2, 3]
+        assert Region.list_right_to_left_merge([1, 3], [0]) == [0, 1, 3]
+
+    @pytest.mark.xfail(reason="Still not fully implemented")
+    def test_triangle_boundary_with_cell_size_equal_to_domain_size_produces_four_points(
+        self, top: HeightFunc, bottom: HeightFunc
+    ) -> None:
+        boundary: list[XYPoint] = [(0, 0), (1, 0), (0, 1)]
+        region = Region(boundary, top, bottom, cell_size=1)
+        grid_points = region.get_2d_grid_points()
+        assert len(grid_points) == 2
+        assert len(grid_points[0]) == 2
+        assert len(grid_points[1]) == 2
+
+
 class TestLowerTriangularGrid:
     def test_cell_size_set_to_domain_size_produces_single_cells(
         self, top: HeightFunc, bottom: HeightFunc
