@@ -139,85 +139,55 @@ class Region:
     @staticmethod
     def list_right_to_left_merge(target: list[int], source: list[int]) -> list[int]:
         i_t = 0
-        i_s = 0
+        n_t = len(target)
+        n_added = 0
         result = target.copy()
         for i_s in range(len(source)):
-            while i_t < len(result) and source[i_s] > result[i_t]:
+            while i_t < n_t and source[i_s] > target[i_t]:
                 i_t += 1
 
-            if i_t >= len(result):
+            if i_t >= n_t:
                 result.append(source[i_s])
 
-            elif source[i_s] < result[i_t]:
-                result.insert(i_t, source[i_s])
-                i_t += 1
+            elif source[i_s] < target[i_t]:
+                result.insert(i_t + n_added, source[i_s])
+                n_added += 1
         return result
-
-    def get_2d_grid_points(self) -> list[list[Index]]:
-        grid_points: list[list[Index]] = []
-        n_rows = int(math.ceil(self._boundary.y_range / self._cell_size)) + 1
-
-        for i in range(n_rows):
-            y = self._boundary.y_bounds[0] + i * self._cell_size
-            grid_points.append(self.get_1d_grid_points(y))
-
-        n = len(grid_points[0])
-        for i in range(n_rows - 1):
-            curr_row = grid_points[i]
-            next_row = grid_points[i + 1]
-            grid_points[i] = self.list_right_to_left_merge(curr_row, next_row)
-
-        n = len(grid_points[-1])
-        for i in range(n_rows - 1, 0, -1):
-            curr_row = grid_points[i]
-            next_row = grid_points[i - 1]
-            kp, kq = 0, 0
-            m = n
-            n = len(next_row)
-            while kp < m and kq < n:
-                if curr_row[kp] == next_row[kq]:
-                    kp += 1
-                    kq += 1
-                elif curr_row[kp] < next_row[kq]:
-                    kp += 1
-                else:
-                    next_row.insert(kq, curr_row[kp])
-                    kp += 1
-                    kq += 1
-
-        return grid_points
 
     def generate_2d_grid(self) -> list[list[GridCell]]:
         result: list[list[Region.GridCell]] = []
         grid_points = self.get_2d_grid_points()
         n_rows = int(math.ceil(self._boundary.y_range / self._cell_size))
 
+        top_points = grid_points[0]
         for i in range(n_rows):
             new_row: list[Region.GridCell] = []
             result.append(new_row)
 
-            new_row.append(self.GridCell(is_boundary=True))
+            bottom_points = grid_points[i + 1]
+            n_bottom_points = len(bottom_points)
+            ib = 0
+            left_edge = False
+            for it in range(len(top_points)):
+                while ib < n_bottom_points and top_points[it] > bottom_points[ib]:
+                    ib += 1
+                    left_edge = False
+
+                if ib >= n_bottom_points:
+                    break
+
+                if top_points[it] == bottom_points[ib]:
+                    # the points are aligned
+                    # create cell if there was edge previously
+                    if left_edge:
+                        new_row.append(self.GridCell(is_boundary=False))
+                    left_edge = True  # remember edge for the next pair of aligned points
+                    ib += 1  # move to the next bottom point
+                else:  # some top point did not have matching bottom point
+                    left_edge = False
+                    # do not move the bottom point, wait for possible top point
+            top_points = bottom_points
         return result
-
-    def _fill_y_groups(self, boundary: list[XYPoint]) -> list[list[XYSegment]]:
-        assert boundary[0] != boundary[-1], "The first and last point must not be identical."
-        empty_list: list[XYSegment] = []
-        groups = [empty_list.copy() for _ in range(self._n_groups)]
-        a = boundary[-1]
-        for b in boundary:
-            segment = (a, b)
-            segment_y_min, segment_y_max = min(a[1], b[1]), max(a[1], b[1])
-            first_group_id = self.get_y_group_index(segment_y_min)
-            last_group_id = self.get_y_group_index(segment_y_max)
-            assert first_group_id >= 0
-            assert last_group_id <= self._n_groups
-            for i in range(first_group_id, min(self._n_groups, last_group_id + 1)):
-                groups[i].append(segment)
-            a = b
-
-        for i, g in enumerate(groups):
-            groups[i] = sorted(g, key=lambda x: min(x[0][0], x[1][0]))
-        return groups
 
     def get_y_group_index(self, y: float) -> int:
         """Returns the y group index for given coord y.
@@ -234,6 +204,26 @@ class Region:
         if y > y_max:
             return self._n_groups
         return 0
+
+    def get_2d_grid_points(self) -> list[list[Index]]:
+        grid_points: list[list[Index]] = []
+        n_rows = int(math.ceil(self._boundary.y_range / self._cell_size)) + 1
+
+        for i in range(n_rows):
+            y = self._boundary.y_bounds[0] + i * self._cell_size
+            grid_points.append(self.get_1d_grid_points(y))
+
+        for i in range(n_rows - 1):
+            curr_row = grid_points[i]
+            next_row = grid_points[i + 1]
+            grid_points[i] = self.list_right_to_left_merge(curr_row, next_row)
+
+        for i in range(n_rows - 1, 0, -1):
+            curr_row = grid_points[i]
+            next_row = grid_points[i - 1]
+            grid_points[i] = self.list_right_to_left_merge(curr_row, next_row)
+
+        return grid_points
 
     def get_1d_grid_points(self, y: float) -> list[Index]:
         result: list[Index] = []
@@ -278,6 +268,26 @@ class Region:
 
         return result
 
+    def _fill_y_groups(self, boundary: list[XYPoint]) -> list[list[XYSegment]]:
+        assert boundary[0] != boundary[-1], "The first and last point must not be identical."
+        empty_list: list[XYSegment] = []
+        groups = [empty_list.copy() for _ in range(self._n_groups)]
+        a = boundary[-1]
+        for b in boundary:
+            segment = (a, b)
+            segment_y_min, segment_y_max = min(a[1], b[1]), max(a[1], b[1])
+            first_group_id = self.get_y_group_index(segment_y_min)
+            last_group_id = self.get_y_group_index(segment_y_max)
+            assert first_group_id >= 0
+            assert last_group_id <= self._n_groups
+            for i in range(first_group_id, min(self._n_groups, last_group_id + 1)):
+                groups[i].append(segment)
+            a = b
+
+        for i, g in enumerate(groups):
+            groups[i] = sorted(g, key=lambda x: min(x[0][0], x[1][0]))
+        return groups
+
     @staticmethod
     def line_crossing(x: float, y: float, segment: XYSegment) -> Region.Crossing:
         """Returns whether the ray from (-inf, y) to (x, y) crosses the line segment.
@@ -309,6 +319,19 @@ class Region:
             if x_frac < y_frac
             else Region.Crossing.ON
         )
+
+    @staticmethod
+    def fill_in_corner_2d_grid_points(grid_points: list[list[Index]]) -> None:
+        n_rows = len(grid_points)
+        for i in range(n_rows - 1):
+            curr_row = grid_points[i]
+            next_row = grid_points[i + 1]
+            grid_points[i] = Region.list_right_to_left_merge(curr_row, next_row)
+
+        for i in range(n_rows - 1, 0, -1):
+            curr_row = grid_points[i]
+            next_row = grid_points[i - 1]
+            grid_points[i] = Region.list_right_to_left_merge(curr_row, next_row)
 
     @staticmethod
     def calc_n_groups(y_range: float, cell_size: float) -> int:

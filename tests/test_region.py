@@ -162,7 +162,11 @@ class Test2DGridPoints:
         assert Region.list_right_to_left_merge([1, 2, 3], []) == [1, 2, 3]
         assert Region.list_right_to_left_merge([1, 3], [0]) == [0, 1, 3]
 
-    @pytest.mark.xfail(reason="Still not fully implemented")
+    def test_filling_in_corner_grid_points(self) -> None:
+        points = [[0], [0], [0, 1], [0], [0]]
+        Region.fill_in_corner_2d_grid_points(points)
+        assert points == [[0], [0, 1], [0, 1], [0, 1], [0]]
+
     def test_triangle_boundary_with_cell_size_equal_to_domain_size_produces_four_points(
         self, top: HeightFunc, bottom: HeightFunc
     ) -> None:
@@ -184,7 +188,6 @@ class TestLowerTriangularGrid:
         assert len(grid) == 1
         assert len(grid[0]) == 1
 
-    @pytest.mark.xfail(reason="Still not fully implemented")
     def test_cell_half_domain_size_produces_3_cells(
         self, top: HeightFunc, bottom: HeightFunc
     ) -> None:
@@ -192,5 +195,37 @@ class TestLowerTriangularGrid:
         region = Region(boundary, top, bottom, cell_size=0.5)
         grid = region.generate_2d_grid()
         assert len(grid) == 2
-        assert len(grid[0]) == 1, "Top row contains only single cell"
-        assert len(grid[1]) == 2, "Bottom row contains 2 cells"
+        assert len(grid[0]) == 2, "Top row contains only single cell"
+        assert len(grid[1]) == 1, "Bottom row contains 2 cells"
+
+    def test_cell_quarter_domain_size_produces_10_cells(self, top: HeightFunc, bottom: HeightFunc):
+        boundary: list[XYPoint] = [(0, 0), (1, 0), (0, 1)]
+        region = Region(boundary, top, bottom, cell_size=0.25)
+        grid = region.generate_2d_grid()
+        assert len(grid) == 4
+        assert len(grid[0]) == 4
+        assert len(grid[1]) == 3
+        assert len(grid[2]) == 2
+        assert len(grid[3]) == 1
+
+    @pytest.mark.xfail(reason="2D grid creation is not implemented fully")
+    def test_m_shaped_domain_does_not_contain_center_top_and_bottom_cells(self):
+        boundary: list[XYPoint] = [
+            (0, 0),
+            (1, 0),
+            (1, 1),
+            (4, 1),
+            (4, 0),
+            (5, 0),
+            (5, 3),
+            (4, 2),
+            (1, 2),
+            (0, 2),
+        ]
+        region = Region(boundary, top, bottom, cell_size=1)
+        grid_points = region.get_2d_grid_points()
+        for row in grid_points:
+            print(row)
+        grid = region.generate_2d_grid()
+        assert len(grid) == 4
+        assert len(grid[0]) == 2
